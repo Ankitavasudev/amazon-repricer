@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amazon Repricer — Admin Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0a0a0a; color: #fff; font-family: 'Inter', sans-serif; min-height: 100vh; }
+  .header { padding: 20px 40px; border-bottom: 1px solid #1a1a1a; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { font-size: 1.3rem; font-weight: 600; }
+  .header h1 span { color: #ff9900; }
+  .main { padding: 40px; max-width: 900px; margin: 0 auto; }
+  .card { background: #111; border: 1px solid #1a1a1a; padding: 24px; margin-bottom: 24px; }
+  .card h2 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; color: #ff9900; }
+  .form-row { display: flex; gap: 12px; margin-bottom: 12px; align-items: end; flex-wrap: wrap; }
+  .form-row > div { flex: 1; min-width: 120px; }
+  label { display: block; font-size: .75rem; color: #888; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
+  input { width: 100%; padding: 8px 12px; background: #1a1a1a; border: 1px solid #333; color: #fff; font-size: .85rem; font-family: 'JetBrains Mono', monospace; }
+  input:focus { outline: none; border-color: #ff9900; }
+  .btn { padding: 8px 20px; background: #ff9900; color: #000; border: none; font-weight: 600; font-size: .8rem; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; }
+  .btn:hover { background: #e68a00; }
+  .btn-danger { background: #ef4444; color: #fff; }
+  .btn-danger:hover { background: #dc2626; }
+  .btn-sm { padding: 4px 12px; font-size: .7rem; }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  th { text-align: left; padding: 10px 8px; border-bottom: 1px solid #333; font-size: .7rem; text-transform: uppercase; letter-spacing: 1px; color: #888; }
+  td { padding: 10px 8px; border-bottom: 1px solid #1a1a1a; }
+  .asin { font-family: 'JetBrains Mono', monospace; color: #ff9900; }
+  .enabled { color: #22c55e; }
+  .disabled { color: #ef4444; }
+  .note { background: #1a1a1a; border: 1px solid #333; padding: 16px; margin-bottom: 24px; font-size: .8rem; color: #888; line-height: 1.6; }
+  .note strong { color: #ff9900; }
+  .export-btn { display: inline-block; padding: 10px 20px; background: #22c55e; color: #000; text-decoration: none; font-weight: 600; font-size: .8rem; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; border: none; }
+  .export-btn:hover { background: #16a34a; }
+  .footer { text-align: center; padding: 24px; color: #444; font-size: .75rem; letter-spacing: 2px; text-transform: uppercase; border-top: 1px solid #1a1a1a; margin-top: 40px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>📦 Amazon <span>Repricer</span> — Admin Panel</h1>
+  <span style="font-size:.7rem;color:#888;letter-spacing:2px;text-transform:uppercase;">Manage ASINs & Floor Prices</span>
+</div>
+
+<div class="main">
+  <div class="note">
+    <strong>Note:</strong> This is a web-based config editor. Changes are saved to your browser's local storage.
+    To use with the Python repricer, export the CSV and place it as <code>asins.csv</code> in the repricer directory.
+    <br><br>
+    <strong>Fields:</strong> ASIN (Amazon product ID), Min Price (floor — never go below), Max Price (optional ceiling), Enabled (true/false)
+  </div>
+
+  <div class="card">
+    <h2>Add / Edit ASIN</h2>
+    <div class="form-row">
+      <div><label>ASIN</label><input type="text" id="asin" placeholder="B08N5WRWNW"></div>
+      <div><label>Min Price (Floor)</label><input type="number" id="minPrice" step="0.01" placeholder="25.00"></div>
+      <div><label>Max Price (Ceiling)</label><input type="number" id="maxPrice" step="0.01" placeholder="45.00 (optional)"></div>
+      <div><label>Enabled</label>
+        <select id="enabled" style="width:100%;padding:8px 12px;background:#1a1a1a;border:1px solid #333;color:#fff;font-size:.85rem;">
+          <option value="true">Yes</option>
+          <option value="false">No</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn" onclick="addAsin()">Add ASIN</button>
+  </div>
+
+  <div class="card">
+    <h2>Configured ASINs</h2>
+    <table>
+      <thead><tr><th>ASIN</th><th>Min Price</th><th>Max Price</th><th>Enabled</th><th>Actions</th></tr></thead>
+      <tbody id="asinsBody"></tbody>
+    </table>
+    <div style="margin-top:16px;display:flex;gap:12px;">
+      <button class="export-btn" onclick="exportCSV()">⬇ Export CSV</button>
+      <button class="btn btn-danger" onclick="clearAll()">Clear All</button>
+    </div>
+  </div>
+</div>
+
+<footer class="footer">Amazon Repricer Admin · Config Manager</footer>
+
+<script>
+let asins = JSON.parse(localStorage.getItem('asins') || '[]');
+
+function renderTable() {
+  const tbody = document.getElementById('asinsBody');
+  tbody.innerHTML = '';
+  asins.forEach((a, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="asin">${a.asin}</td>
+      <td>$${parseFloat(a.minPrice).toFixed(2)}</td>
+      <td>${a.maxPrice ? '$' + parseFloat(a.maxPrice).toFixed(2) : '—'}</td>
+      <td class="${a.enabled === 'true' ? 'enabled' : 'disabled'}">${a.enabled === 'true' ? '✓ Yes' : '✗ No'}</td>
+      <td><button class="btn btn-sm btn-danger" onclick="removeAsin(${idx})">Remove</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function addAsin() {
+  const asin = document.getElementById('asin').value.trim();
+  const minPrice = document.getElementById('minPrice').value;
+  const maxPrice = document.getElementById('maxPrice').value;
+  const enabled = document.getElementById('enabled').value;
+
+  if (!asin || !minPrice) { alert('ASIN and Min Price are required'); return; }
+
+  // Check duplicate
+  if (asins.find(a => a.asin === asin)) {
+    alert('ASIN already exists. Remove it first.');
+    return;
+  }
+
+  asins.push({ asin, minPrice, maxPrice, enabled });
+  localStorage.setItem('asins', JSON.stringify(asins));
+  renderTable();
+
+  // Clear inputs
+  document.getElementById('asin').value = '';
+  document.getElementById('minPrice').value = '';
+  document.getElementById('maxPrice').value = '';
+  showToast('ASIN added');
+}
+
+function removeAsin(idx) {
+  asins.splice(idx, 1);
+  localStorage.setItem('asins', JSON.stringify(asins));
+  renderTable();
+  showToast('ASIN removed');
+}
+
+function clearAll() {
+  if (confirm('Clear all ASINs?')) {
+    asins = [];
+    localStorage.setItem('asins', JSON.stringify(asins));
+    renderTable();
+    showToast('All cleared');
+  }
+}
+
+function exportCSV() {
+  if (asins.length === 0) { alert('No ASINs to export'); return; }
+  let csv = 'asin,min_price,max_price,enabled\n';
+  asins.forEach(a => {
+    csv += `${a.asin},${a.minPrice},${a.maxPrice || ''},${a.enabled}\n`;
+  });
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'asins.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV exported!');
+}
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed;bottom:20px;right:20px;background:#ff9900;color:#000;padding:12px 24px;font-size:.85rem;font-weight:600;z-index:100;';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+
+// Load sample data if empty
+if (asins.length === 0) {
+  asins = [
+    { asin: 'B08N5WRWNW', minPrice: '25.00', maxPrice: '45.00', enabled: 'true' },
+    { asin: 'B07XJ8C8F5', minPrice: '40.00', maxPrice: '60.00', enabled: 'true' },
+    { asin: 'B09G9FPHY6', minPrice: '15.00', maxPrice: '30.00', enabled: 'true' },
+    { asin: 'B08L5V9J8X', minPrice: '50.00', maxPrice: '70.00', enabled: 'true' },
+    { asin: 'B07FZ8S74R', minPrice: '10.00', maxPrice: '20.00', enabled: 'true' },
+  ];
+  localStorage.setItem('asins', JSON.stringify(asins));
+}
+
+renderTable();
+</script>
+</body>
+</html>
