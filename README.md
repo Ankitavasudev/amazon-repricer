@@ -1,39 +1,31 @@
 # Amazon Repricer
 
-Automated Amazon repricer that matches the lowest competitor price while respecting your floor price. Runs on a schedule, logs every change.
+Automatically match your competitors' lowest price on Amazon — without ever going below your floor. Runs on a schedule, logs every change.
 
-## Features
+## What it does
 
-- 📊 Pulls competitor pricing via Amazon SP-API
-- ⚖️ Matches lowest competitor price (never higher, never below floor)
-- 🛡️ Per-ASIN minimum price (floor) enforcement
-- 📝 Logs every price change for transparency
-- ⏰ Cron-scheduled (adjustable interval)
-- 🧪 Mock mode for testing (no Amazon account needed)
-- 📄 CSV config for ASINs and min prices
+1. Pulls current competitor pricing for each ASIN via Amazon SP-API
+2. Compares your price to the lowest competitor offer
+3. If you're higher, updates your price to match exactly
+4. If you're already lowest or equal, does nothing
+5. Never goes below your configured minimum (floor) price
+6. Logs every price change with timestamp for full transparency
 
 ## Quick Start
 
-### 1. Install dependencies
+### Test with mock data (no Amazon account needed)
+
 ```bash
 pip install -r requirements.txt
-```
-
-### 2. Configure
-Edit `asins.csv` with your ASINs and minimum prices:
-```csv
-asin,min_price,max_price,enabled
-B08N5WRWNW,25.00,45.00,true
-```
-
-### 3. Test with mock mode (no Amazon account needed)
-```bash
 python main.py --once --mock
 ```
 
-### 4. Run with real SP-API
-Set environment variables or edit `config.json`:
+You'll see 5 sample ASINs get repriced to match mock competitor prices.
+
+### Run with real Amazon SP-API
+
 ```bash
+# Set your credentials
 export SELLER_ID="your_seller_id"
 export AWS_ACCESS_KEY_ID="your_access_key"
 export AWS_SECRET_ACCESS_KEY="your_secret_key"
@@ -42,24 +34,55 @@ export LWA_CLIENT_ID="your_lwa_client_id"
 export LWA_CLIENT_SECRET="your_lwa_client_secret"
 export MOCK_MODE="false"
 
+# Test once
 python main.py --once
+
+# Run on schedule (every 30 min)
+python main.py
 ```
 
-### 5. Run on schedule
+## Configuration
+
+### ASINs and Floor Prices (`asins.csv`)
+
+```csv
+asin,min_price,max_price,enabled
+B08N5WRWNW,25.00,45.00,true
+B07XJ8C8F5,40.00,60.00,true
+```
+
+Edit this file to add/remove ASINs or change floor prices. No code changes needed.
+
+### Admin Panel (Web UI)
+
+Open `admin.html` in your browser to manage ASINs visually:
+- Add/remove ASINs
+- Set min price (floor) and max price (ceiling)
+- Enable/disable individual ASINs
+- Export to CSV (download as `asins.csv`)
+
+### Timing
+
 ```bash
-python main.py  # runs every 30 minutes (configurable)
+# Run every 15 minutes
+python main.py --interval 15
+
+# Run every hour
+python main.py --interval 60
+
+# Cron job (every 30 min)
+*/30 * * * * cd /path/to/repricer && python main.py --once >> repricer.log 2>&1
 ```
 
-## Amazon SP-API Setup Guide
+## Amazon SP-API Setup
 
 ### Step 1: Register as Amazon Developer
 1. Go to https://developer.amazon.com
 2. Sign in with your Amazon seller account
-3. Go to "Developer Console" → "Apps and Services"
-4. Create a new app (type: "SP-API")
+3. Developer Console → Apps and Services → Create new app (type: SP-API)
 
 ### Step 2: Get LWA Credentials
-1. In your app, go to "Login with Amazon"
+1. In your app → Login with Amazon
 2. Note your **Client ID** and **Client Secret**
 
 ### Step 3: Get SP-API Refresh Token
@@ -68,52 +91,41 @@ python main.py  # runs every 30 minutes (configurable)
 3. Copy the **Refresh Token**
 
 ### Step 4: Get AWS Credentials
-1. Go to AWS IAM Console
-2. Create a user with `SellingPartnerAPI` policy
-3. Note **Access Key ID** and **Secret Access Key**
+1. AWS IAM Console → Create user with `SellingPartnerAPI` policy
+2. Note **Access Key ID** and **Secret Access Key**
 
 ### Step 5: Configure
-Edit `config.json`:
-```json
-{
-  "seller_id": "YOUR_SELLER_ID",
-  "marketplace_id": "ATVPDKIKX0DER",
-  "region": "us-east-1",
-  "access_key": "YOUR_AWS_ACCESS_KEY",
-  "secret_key": "YOUR_AWS_SECRET_KEY",
-  "refresh_token": "YOUR_SP_API_REFRESH_TOKEN",
-  "lwa_client_id": "YOUR_LWA_CLIENT_ID",
-  "lwa_client_secret": "YOUR_LWA_CLIENT_SECRET",
-  "mock_mode": false,
-  "schedule_interval_minutes": 30,
-  "log_file": "repricer.log"
-}
-```
+Edit `config.json` with your credentials (or use environment variables).
 
-### Step 6: Deploy on Cloud (Cron)
+### Step 6: Test
 ```bash
-# On a small VPS (DigitalOcean, AWS EC2, etc.)
-# Install Python and dependencies
-pip install -r requirements.txt
-
-# Run with cron (every 30 minutes)
-crontab -e
-# Add: */30 * * * * cd /path/to/repricer && python main.py --once >> repricer.log 2>&1
+python main.py --once
 ```
 
-### Step 7: Deploy on AWS Lambda
-1. Package the code with dependencies
+### Step 7: Deploy
+**Option A: Small cloud instance (DigitalOcean, AWS EC2, etc.)**
+```bash
+pip install -r requirements.txt
+# Add cron job (see Timing section above)
+```
+
+**Option B: AWS Lambda**
+1. Package code + dependencies as zip
 2. Create Lambda function (Python 3.11)
 3. Set environment variables
-4. Create EventBridge rule (every 30 minutes)
+4. Create EventBridge rule (every 30 min)
 5. CloudWatch logs for monitoring
 
 ## Log Format
-Every price change is logged:
+
+Every price change is logged with timestamp:
+
 ```
-2026-11-24 10:30:00 [INFO] B08N5WRWNW: My price=$34.99, Lowest competitor=$28.99, Floor=$25.00
-2026-11-24 10:30:00 [INFO]   -> Updated: $34.99 -> $28.99
+2026-11-24 10:30:00 [INFO] B08N5WRWNW: My price=$34.99, Lowest competitor=$29.04, Floor=$25.00
+2026-11-24 10:30:00 [INFO]   -> Updated: $34.99 -> $29.04
 ```
+
+Logs are saved to `repricer.log` (configurable).
 
 ## Requirements
 - Python 3.10+
