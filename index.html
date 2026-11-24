@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Amazon Repricer — Live Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0a0a0a; color: #fff; font-family: 'Inter', sans-serif; min-height: 100vh; }
+  .header { padding: 20px 40px; border-bottom: 1px solid #1a1a1a; display: flex; justify-content: space-between; align-items: center; }
+  .header h1 { font-size: 1.3rem; font-weight: 600; }
+  .header h1 span { color: #ff9900; }
+  .header .badge { font-size: .7rem; letter-spacing: 2px; color: #888; text-transform: uppercase; }
+  .main { padding: 40px; max-width: 1200px; margin: 0 auto; }
+  .config { background: #111; border: 1px solid #1a1a1a; padding: 24px; margin-bottom: 24px; }
+  .config h2 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; color: #ff9900; }
+  .config-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .config-row label { font-size: .75rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+  .config-row input { padding: 8px 12px; background: #1a1a1a; border: 1px solid #333; color: #fff; font-size: .85rem; width: 120px; }
+  .config-row .btn { padding: 8px 20px; background: #ff9900; color: #000; border: none; font-weight: 600; font-size: .8rem; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; }
+  .config-row .btn:hover { background: #e68a00; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .stat { background: #111; border: 1px solid #1a1a1a; padding: 20px; }
+  .stat .label { font-size: .7rem; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .stat .value { font-size: 1.8rem; font-weight: 700; }
+  .stat .value.orange { color: #ff9900; }
+  .stat .value.green { color: #22c55e; }
+  .stat .value.red { color: #ef4444; }
+  .asins { background: #111; border: 1px solid #1a1a1a; padding: 24px; margin-bottom: 24px; }
+  .asins h2 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; color: #ff9900; }
+  .asins table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  .asins th { text-align: left; padding: 10px 8px; border-bottom: 1px solid #333; font-size: .7rem; text-transform: uppercase; letter-spacing: 1px; color: #888; }
+  .asins td { padding: 10px 8px; border-bottom: 1px solid #1a1a1a; }
+  .asins .asin { font-family: 'JetBrains Mono', monospace; font-size: .8rem; color: #ff9900; }
+  .asins .price { font-family: 'JetBrains Mono', monospace; }
+  .asins .changed { color: #22c55e; font-weight: 600; }
+  .asins .unchanged { color: #888; }
+  .asins .floor { color: #ef4444; font-size: .75rem; }
+  .log { background: #111; border: 1px solid #1a1a1a; padding: 24px; }
+  .log h2 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; color: #ff9900; }
+  .log-content { background: #0a0a0a; padding: 16px; font-family: 'JetBrains Mono', monospace; font-size: .75rem; line-height: 1.8; max-height: 300px; overflow-y: auto; border: 1px solid #1a1a1a; }
+  .log-content .info { color: #888; }
+  .log-content .success { color: #22c55e; }
+  .log-content .warning { color: #f59e0b; }
+  .log-content .error { color: #ef4444; }
+  .run-btn { display: block; width: 100%; padding: 16px; background: #ff9900; color: #000; border: none; font-weight: 700; font-size: 1rem; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; margin-bottom: 24px; transition: all .2s; }
+  .run-btn:hover { background: #e68a00; }
+  .run-btn:disabled { background: #333; color: #666; cursor: not-allowed; }
+  .mode-toggle { display: flex; gap: 8px; margin-bottom: 24px; }
+  .mode-toggle button { padding: 8px 16px; background: #111; border: 1px solid #333; color: #888; font-size: .8rem; cursor: pointer; transition: all .2s; }
+  .mode-toggle button.active { background: #ff9900; color: #000; border-color: #ff9900; font-weight: 600; }
+  .footer { text-align: center; padding: 24px; color: #444; font-size: .75rem; letter-spacing: 2px; text-transform: uppercase; border-top: 1px solid #1a1a1a; }
+  .badge { display: inline-block; padding: 4px 12px; background: #1a1a1a; border: 1px solid #333; font-size: .7rem; letter-spacing: 2px; text-transform: uppercase; color: #888; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>📦 Amazon <span>Repricer</span> — Live Demo</h1>
+  <span class="badge">Mock Mode · SP-API Ready</span>
+</div>
+
+<div class="main">
+  <div class="mode-toggle">
+    <button class="active" id="mockBtn" onclick="setMode('mock')">Mock Mode</button>
+    <button id="realBtn" onclick="setMode('real')">Real SP-API (needs credentials)</button>
+  </div>
+
+  <button class="run-btn" id="runBtn" onclick="runReprice()">▶ Run Reprice Cycle</button>
+
+  <div class="stats">
+    <div class="stat"><div class="label">ASINs Tracked</div><div class="value orange" id="statAsins">5</div></div>
+    <div class="stat"><div class="label">Price Changes</div><div class="value green" id="statChanges">0</div></div>
+    <div class="stat"><div class="label">Unchanged</div><div class="value" id="statUnchanged">0</div></div>
+    <div class="stat"><div class="label">Avg. Savings</div><div class="value red" id="statSavings">—</div></div>
+  </div>
+
+  <div class="asins">
+    <h2>ASIN Price Tracker</h2>
+    <table>
+      <thead><tr><th>ASIN</th><th>My Price</th><th>Lowest Competitor</th><th>Floor Price</th><th>Status</th></tr></thead>
+      <tbody id="asinsBody"></tbody>
+    </table>
+  </div>
+
+  <div class="log">
+    <h2>Reprice Log</h2>
+    <div class="log-content" id="logContent">
+      <div class="info">Click "Run Reprice Cycle" to start...</div>
+    </div>
+  </div>
+</div>
+
+<footer class="footer">Amazon Repricer · Mock Mode Demo · Built with Python + SP-API</footer>
+
+<script>
+const asins = [
+  { asin: 'B08N5WRWNW', myPrice: 34.99, floor: 25.00, max: 45.00 },
+  { asin: 'B07XJ8C8F5', myPrice: 49.99, floor: 40.00, max: 60.00 },
+  { asin: 'B09G9FPHY6', myPrice: 22.99, floor: 15.00, max: 30.00 },
+  { asin: 'B08L5V9J8X', myPrice: 59.99, floor: 50.00, max: 70.00 },
+  { asin: 'B07FZ8S74R', myPrice: 15.99, floor: 10.00, max: 20.00 },
+];
+
+let mode = 'mock';
+let running = false;
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('mockBtn').classList.toggle('active', m === 'mock');
+  document.getElementById('realBtn').classList.toggle('active', m === 'real');
+  addLog('info', `Mode switched to: ${m.toUpperCase()}`);
+}
+
+function addLog(level, msg) {
+  const log = document.getElementById('logContent');
+  const div = document.createElement('div');
+  div.className = level;
+  div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function runReprice() {
+  if (running) return;
+  running = true;
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Running...';
+
+  addLog('info', `Starting reprice cycle for ${asins.length} ASINs`);
+  addLog('info', `Mock mode: ${mode === 'mock'}`);
+
+  let changes = 0;
+  let unchanged = 0;
+  let totalSavings = 0;
+
+  asins.forEach((item, idx) => {
+    setTimeout(() => {
+      // Simulate competitor price fluctuation
+      const base = item.myPrice * 0.85;
+      const competitors = [
+        +(base + (Math.random() * 6 - 3)).toFixed(2),
+        +(base + (Math.random() * 6 - 3)).toFixed(2),
+        +(base + (Math.random() * 6 - 3)).toFixed(2),
+        +(base + (Math.random() * 6 - 3)).toFixed(2),
+      ];
+      const lowest = Math.min(...competitors);
+
+      addLog('info', `${item.asin}: My price=$${item.myPrice.toFixed(2)}, Lowest competitor=$${lowest.toFixed(2)}, Floor=$${item.floor.toFixed(2)}`);
+
+      if (item.myPrice <= lowest) {
+        addLog('info', '  → Already at or below lowest competitor. No change.');
+        unchanged++;
+        updateRow(item.asin, item.myPrice, lowest, item.floor, 'unchanged');
+      } else {
+        let target = lowest;
+        if (target < item.floor) {
+          target = item.floor;
+          addLog('warning', `  → Target below floor. Using floor price $${target.toFixed(2)}`);
+        }
+        if (item.max && target > item.max) {
+          target = item.max;
+          addLog('warning', `  → Target above max. Using max price $${target.toFixed(2)}`);
+        }
+        if (Math.abs(target - item.myPrice) < 0.01) {
+          addLog('info', '  → Price change too small. No update.');
+          unchanged++;
+          updateRow(item.asin, item.myPrice, lowest, item.floor, 'unchanged');
+        } else {
+          addLog('success', `[MOCK] Updated ${item.asin} price to $${target.toFixed(2)}`);
+          addLog('success', `  → Updated: $${item.myPrice.toFixed(2)} -> $${target.toFixed(2)}`);
+          const savings = item.myPrice - target;
+          totalSavings += savings;
+          item.myPrice = target;
+          changes++;
+          updateRow(item.asin, target, lowest, item.floor, 'changed', savings);
+        }
+      }
+
+      // Update stats on last item
+      if (idx === asins.length - 1) {
+        setTimeout(() => {
+          document.getElementById('statChanges').textContent = changes;
+          document.getElementById('statUnchanged').textContent = unchanged;
+          document.getElementById('statSavings').textContent = '$' + totalSavings.toFixed(2);
+          addLog('success', `Reprice cycle complete. ${changes} price changes made.`);
+          btn.disabled = false;
+          btn.textContent = '▶ Run Reprice Cycle';
+          running = false;
+        }, 500);
+      }
+    }, idx * 800);
+  });
+}
+
+function updateRow(asin, myPrice, lowest, floor, status, savings) {
+  const tbody = document.getElementById('asinsBody');
+  let row = tbody.querySelector(`[data-asin="${asin}"]`);
+  if (!row) {
+    row = document.createElement('tr');
+    row.setAttribute('data-asin', asin);
+    tbody.appendChild(row);
+  }
+  const statusClass = status === 'changed' ? 'changed' : 'unchanged';
+  const statusText = status === 'changed' ? `↓ -$${savings.toFixed(2)}` : '— unchanged';
+  row.innerHTML = `
+    <td class="asin">${asin}</td>
+    <td class="price">$${myPrice.toFixed(2)}</td>
+    <td class="price">$${lowest.toFixed(2)}</td>
+    <td class="floor">$${floor.toFixed(2)}</td>
+    <td class="${statusClass}">${statusText}</td>
+  `;
+}
+
+// Init table
+asins.forEach(item => {
+  updateRow(item.asin, item.myPrice, item.myPrice * 0.85, item.floor, 'unchanged', 0);
+});
+</script>
+</body>
+</html>
