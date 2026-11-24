@@ -1,0 +1,14 @@
+{
+  "seller_id": "YOUR_SELLER_ID",
+  "marketplace_id": "ATVPDKIKX0DER",
+  "region": "us-east-1",
+  "access_key": "YOUR_AWS_ACCESS_KEY",
+  "secret_key": "YOUR_AWS_SECRET_KEY",
+  "refresh_token": "YOUR_SP_API_REFRESH_TOKEN",
+  "lwa_client_id": "YOUR_LWA_CLIENT_ID",
+  "lwa_client_secret": "YOUR_LWA_CLIENT_SECRET",
+  "mock_mode": true,
+  "schedule_interval_minutes": 30,
+  "log_file": "repricer.log",
+  "asin_file": "asins.csv"
+}
